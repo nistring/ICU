@@ -1,5 +1,5 @@
 kp num: 9 # keypoints number
-input size: 256  # 288 * 288
+input size: 256
 lr: 0.00035
 decay: 1.0e-4
 width: 640
