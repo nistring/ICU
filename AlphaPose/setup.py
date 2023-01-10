@@ -9,7 +9,7 @@ from setuptools import Extension, find_packages, setup
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 MAJOR = 0
-MINOR = 3
+MINOR = 5
 PATCH = 0
 SUFFIX = ''
 SHORT_VERSION = '{}.{}.{}{}'.format(MAJOR, MINOR, PATCH, SUFFIX)
@@ -160,7 +160,7 @@ def get_ext_modules():
 
 def get_install_requires():
     install_requires = [
-        'six', 'terminaltables', 'scipy==1.1.0',
+        'six', 'terminaltables', 'scipy',
         'opencv-python', 'matplotlib', 'visdom',
         'tqdm', 'tensorboardx', 'easydict',
         'pyyaml', 'halpecocotools',

@@ -1,3 +1,0 @@
-python scripts/demo_inference.py --cfg configs/coco/resnet/256x192_res50_lr1e-3_2x-dcn.yaml --checkpoint pretrained_models/fast_dcn_res50_256x192.pth --indir /media/nistring/0f737a3f-358d-45e0-827c-473d6a7d555b/@ICU/datasets/train/color_img --outdir /media/nistring/0f737a3f-358d-45e0-827c-473d6a7d555b/@ICU/datasets/train/res --save_img --dtype train
-python detect.py --weights /media/nistring/0f737a3f-358d-45e0-827c-473d6a7d555b/@ICU/yolov5/runs/train/exp2/weights/best.pt --source /media/nistring/0f737a3f-358d-45e0-827c-473d6a7d555b/@ICU/datasets/test/images --data /media/nistring/0f737a3f-358d-45e0-827c-473d6a7d555b/@ICU/yolov5/data/ICU.yaml --save-txt
-python train.py --img 640 --batch 16 --epochs 3 --data ICU.yaml --weights yolov5s.pt

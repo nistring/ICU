@@ -4,13 +4,12 @@ import os
 import platform
 import sys
 import time
-root = os.path.dirname(os.path.abspath(os.path.dirname(__file__)))
-sys.path.append(root)
+import h5py
+
 import numpy as np
 import torch
 from tqdm import tqdm
 import natsort
-import h5py
 
 from detector.apis import get_detector
 from trackers.tracker_api import Tracker
@@ -71,8 +70,11 @@ parser.add_argument('--flip', default=False, action='store_true',
                     help='enable flip testing')
 parser.add_argument('--debug', default=False, action='store_true',
                     help='print detail information')
-parser.add_argument('--dtype', dest='dtype',
-                    help='train / test')
+'''
+User defined option
+'''
+parser.add_argument('--dtype', default="", dest='dtype',
+                    help='train or test')
 """----------------------------- Video options -----------------------------"""
 parser.add_argument('--video', dest='video',
                     help='video-name', default="")
@@ -162,6 +164,11 @@ def loop():
         yield n
         n += 1
 
+def create_labels(data_len):
+    with h5py.File(os.path.join(args.outputpath, f'ICU_{args.dtype}_labels.h5'), 'w') as f:
+        f.create_dataset('is_valid', data=np.zeros(data_len))
+        f.create_dataset('image_coordinates', data=np.zeros((data_len, 9, 2)))
+        f.create_dataset('bounding_box', data=np.zeros((data_len, 4)))
 
 if __name__ == "__main__":
     mode, input_source = check_input()
@@ -179,6 +186,9 @@ if __name__ == "__main__":
     else:
         det_loader = DetectionLoader(input_source, get_detector(args), cfg, args, batchSize=args.detbatch, mode=mode, queueSize=args.qsize)
         det_worker = det_loader.start()
+
+    # Create h5 file containing keypoints and bounding box results
+    create_labels(det_loader.length)
 
     # Load pose model
     pose_model = builder.build_sppe(cfg.MODEL, preset_cfg=cfg.DATA_PRESET)
@@ -232,49 +242,39 @@ if __name__ == "__main__":
                 if orig_img is None:
                     break
                 if boxes is None or boxes.nelement() == 0:
-                    if args.profile:
-                        ckpt_time, det_time = getTime(start_time)
-                        runtime_profile['dt'].append(det_time)
                     writer.save(None, None, None, None, None, orig_img, im_name)
-                    if args.profile:
-                        ckpt_time, pose_time = getTime(ckpt_time)
-                        runtime_profile['pt'].append(pose_time)
-                    pose = writer.start()
-                    if args.profile:
-                        ckpt_time, post_time = getTime(ckpt_time)
-                        runtime_profile['pn'].append(post_time)
-                else:
-                    if args.profile:
-                        ckpt_time, det_time = getTime(start_time)
-                        runtime_profile['dt'].append(det_time)
-                    # Pose Estimation
-                    inps = inps.to(args.device)
-                    datalen = inps.size(0)
-                    leftover = 0
-                    if (datalen) % batchSize:
-                        leftover = 1
-                    num_batches = datalen // batchSize + leftover
-                    hm = []
-                    for j in range(num_batches):
-                        inps_j = inps[j * batchSize:min((j + 1) * batchSize, datalen)]
-                        if args.flip:
-                            inps_j = torch.cat((inps_j, flip(inps_j)))
-                        hm_j = pose_model(inps_j)
-                        if args.flip:
-                            hm_j_flip = flip_heatmap(hm_j[int(len(hm_j) / 2):], pose_dataset.joint_pairs, shift=True)
-                            hm_j = (hm_j[0:int(len(hm_j) / 2)] + hm_j_flip) / 2
-                        hm.append(hm_j)
-                    hm = torch.cat(hm)
-                    if args.profile:
-                        ckpt_time, pose_time = getTime(ckpt_time)
-                        runtime_profile['pt'].append(pose_time)
-                    if args.pose_track:
-                        boxes,scores,ids,hm,cropped_boxes = track(tracker,args,orig_img,inps,boxes,hm,cropped_boxes,im_name,scores)
-                    hm = hm.cpu()
-                    writer.save(boxes, scores, ids, hm, cropped_boxes, orig_img, im_name)
-                    if args.profile:
-                        ckpt_time, post_time = getTime(ckpt_time)
-                        runtime_profile['pn'].append(post_time)
+                    continue
+                if args.profile:
+                    ckpt_time, det_time = getTime(start_time)
+                    runtime_profile['dt'].append(det_time)
+                # Pose Estimation
+                inps = inps.to(args.device)
+                datalen = inps.size(0)
+                leftover = 0
+                if (datalen) % batchSize:
+                    leftover = 1
+                num_batches = datalen // batchSize + leftover
+                hm = []
+                for j in range(num_batches):
+                    inps_j = inps[j * batchSize:min((j + 1) * batchSize, datalen)]
+                    if args.flip:
+                        inps_j = torch.cat((inps_j, flip(inps_j)))
+                    hm_j = pose_model(inps_j)
+                    if args.flip:
+                        hm_j_flip = flip_heatmap(hm_j[int(len(hm_j) / 2):], pose_dataset.joint_pairs, shift=True)
+                        hm_j = (hm_j[0:int(len(hm_j) / 2)] + hm_j_flip) / 2
+                    hm.append(hm_j)
+                hm = torch.cat(hm)
+                if args.profile:
+                    ckpt_time, pose_time = getTime(ckpt_time)
+                    runtime_profile['pt'].append(pose_time)
+                if args.pose_track:
+                    boxes,scores,ids,hm,cropped_boxes = track(tracker,args,orig_img,inps,boxes,hm,cropped_boxes,im_name,scores)
+                hm = hm.cpu()
+                writer.save(boxes, scores, ids, hm, cropped_boxes, orig_img, im_name)
+                if args.profile:
+                    ckpt_time, post_time = getTime(ckpt_time)
+                    runtime_profile['pn'].append(post_time)
 
             if args.profile:
                 # TQDM
@@ -285,15 +285,10 @@ if __name__ == "__main__":
         print_finish_info()
         while(writer.running()):
             time.sleep(1)
-            print('===========================> Rendering remaining ' + str(writer.count()) + ' images in the queue...')
-
-        with h5py.File(os.path.join(os.path.dirname(root), 'datasets', args.dtype, f'ICU_{args.dtype}_labels.h5'), 'w') as result_for_A2J:
-            result_for_A2J.create_dataset('is_valid', data=np.zeros(data_len))
-            result_for_A2J.create_dataset('image_coordinates', data=np.zeros((data_len, 9, 2)))
-            result_for_A2J.create_dataset('bounding_box', data=np.zeros((data_len, 4)))
-            result_for_A2J.create_dataset('frame_id_list', data=np.load(os.path.join(os.path.dirname(root), 'datasets', args.dtype, 'frame_id_list.npy')))
+            print('===========================> Rendering remaining ' + str(writer.count()) + ' images in the queue...', end='\r')
         writer.stop()
         det_loader.stop()
+
     except Exception as e:
         print(repr(e))
         print('An error as above occurs when processing the images, please check it')
@@ -305,7 +300,7 @@ if __name__ == "__main__":
             det_loader.terminate()
             while(writer.running()):
                 time.sleep(1)
-                print('===========================> Rendering remaining ' + str(writer.count()) + ' images in the queue...')
+                print('===========================> Rendering remaining ' + str(writer.count()) + ' images in the queue...', end='\r')
             writer.stop()
         else:
             # subprocesses are killed, manually clear queues

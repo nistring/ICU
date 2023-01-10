@@ -152,7 +152,7 @@ class LoadImagesAndLabels:  # for training
         img = cv2.imread(img_path)  # BGR
         if img is None:
             raise ValueError('File corrupt {}'.format(img_path))
-        augment_hsv = False
+        augment_hsv = True
         if self.augment and augment_hsv:
             # SV augmentation by 50%
             fraction = 0.50

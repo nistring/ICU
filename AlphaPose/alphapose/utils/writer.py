@@ -1,8 +1,7 @@
 import os
 import time
-from threading import Thread, Lock
+from threading import Thread
 from queue import Queue
-# from typing import final
 
 import cv2
 import numpy as np
@@ -21,7 +20,6 @@ DEFAULT_VIDEO_SAVE_OPT = {
 
 EVAL_JOINTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 
-lock = Lock()
 
 class DataWriter():
     def __init__(self, cfg, opt, save_video=False,
@@ -94,21 +92,20 @@ class DataWriter():
                 self.video_save_opt['savepath'] = self.video_save_opt['savepath'][:-4] + _ext
                 stream = cv2.VideoWriter(*[self.video_save_opt[k] for k in ['savepath', 'fourcc', 'fps', 'frameSize']])
             assert stream.isOpened(), 'Cannot open video for writing'
-        # keep looping infinitely
+        # keep looping infinitelyd
         while True:
-            if not self.result_queue.empty():
-                # ensure the queue is not empty and get item
-                (boxes, scores, ids, hm_data, cropped_boxes, orig_img, im_name) = self.wait_and_get(self.result_queue)
-            else:
-                continue
+            # ensure the queue is not empty and get item
+            (boxes, scores, ids, hm_data, cropped_boxes, orig_img, im_name) = self.wait_and_get(self.result_queue)
             if orig_img is None:
                 # if the thread indicator variable is set (img is None), stop the thread
                 if self.save_video:
                     stream.release()
+                '''
+                write_txt is a user-defined function.
+                '''
                 write_txt(final_result, self.opt.outputpath, self.opt.dtype)
-                write_json(final_result, self.opt.outputpath, form=self.opt.format, for_eval=self.opt.eval)
-                print("Results have been written.")
-                self.save(None, None, None, None, None, None, None)
+                # write_json(final_result, self.opt.outputpath, form=self.opt.format, for_eval=self.opt.eval)
+                print("Results have been written to json.")
                 return
             # image channel RGB->BGR
             orig_img = np.array(orig_img, dtype=np.uint8)[:, :, ::-1]

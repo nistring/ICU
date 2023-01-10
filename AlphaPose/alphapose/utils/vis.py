@@ -2,8 +2,17 @@ import math
 import time
 
 import cv2
+import matplotlib
+
+matplotlib.use('agg')
+import logging
+
+import matplotlib.pyplot as plt
 import numpy as np
+import PIL.Image as pil_img
 import torch
+
+logging.getLogger('matplotlib.font_manager').disabled = True
 
 RED = (0, 0, 255)
 GREEN = (0, 255, 0)
@@ -27,6 +36,20 @@ def get_color(idx):
 
 def get_color_fast(idx):
     color_pool = [RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, PURPLE, WHITE]
+    color = color_pool[idx % 8]
+
+    return color
+
+
+def get_smpl_color(idx):
+    color_pool = [
+        [int(0.65098039 * 255), int(0.74117647 * 255), int(0.85882353 * 255)],
+        [0.9 * 255, 0.7 * 255, 0.7 * 255],
+        [120, 198, 121],
+        [0.74117647 * 255, 0.65098039 * 255, 0.85882353 * 255],
+        [0.7 * 255, 0.9 * 255, 0.7 * 255],
+        [198, 120, 121],
+        CYAN, WHITE]
     color = color_pool[idx % 8]
 
     return color
@@ -196,7 +219,11 @@ def vis_frame_fast(frame, im_res, opt, vis_thres, format='coco'):
         if kp_num == 17:
             kp_preds = torch.cat((kp_preds, torch.unsqueeze((kp_preds[5, :] + kp_preds[6, :]) / 2, 0)))
             kp_scores = torch.cat((kp_scores, torch.unsqueeze((kp_scores[5, :] + kp_scores[6, :]) / 2, 0)))
+            vis_thres.append(vis_thres[-1])
         if opt.pose_track or opt.tracking:
+            while isinstance(human['idx'], list):
+                human['idx'].sort()
+                human['idx'] = human['idx'][0]
             color = get_color_fast(int(abs(human['idx'])))
         else:
             color = BLUE
@@ -242,7 +269,7 @@ def vis_frame_fast(frame, im_res, opt, vis_thres, format='coco'):
                     else:
                         cv2.line(img, start_xy, end_xy, line_color[i], 2 * int(kp_scores[start_p] + kp_scores[end_p]) + 1)
                 else:
-                    cv2.line(img, start_xy, end_xy, (255,255,255), 1)  
+                    cv2.line(img, start_xy, end_xy, (255,255,255), 1)
 
     return img
 
@@ -263,28 +290,18 @@ def vis_frame(frame, im_res, opt, vis_thres, format='coco'):
         if format == 'coco':
             l_pair = [
                 (0, 1), (0, 2), (1, 3), (2, 4),  # Head
-                (5, 6), (5, 7), (7, 9), (6, 8), (8, 10)
+                (5, 6), (5, 7), (7, 9), (6, 8), (8, 10),
+                (17, 11), (17, 12),  # Body
+                (11, 13), (12, 14), (13, 15), (14, 16)
             ]
 
             p_color = [(0, 255, 255), (0, 191, 255), (0, 255, 102), (0, 77, 255), (0, 255, 0),  # Nose, LEye, REye, LEar, REar
-                       (77, 255, 255), (77, 255, 204), (77, 204, 255), (191, 255, 77), (77, 191, 255), (191, 255, 77)] # LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist
+                       (77, 255, 255), (77, 255, 204), (77, 204, 255), (191, 255, 77), (77, 191, 255), (191, 255, 77),  # LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist
+                       (204, 77, 255), (77, 255, 204), (191, 77, 255), (77, 255, 191), (127, 77, 255), (77, 255, 127), (0, 255, 255)]  # LHip, RHip, LKnee, Rknee, LAnkle, RAnkle, Neck
             line_color = [(0, 215, 255), (0, 255, 204), (0, 134, 255), (0, 255, 50),
-                          (77, 255, 222), (77, 196, 255), (77, 135, 255), (191, 255, 77), (77, 255, 77)]
-        # if format == 'coco':
-        #     l_pair = [
-        #         (0, 1), (0, 2), (1, 3), (2, 4),  # Head
-        #         (5, 6), (5, 7), (7, 9), (6, 8), (8, 10),
-        #         (17, 11), (17, 12),  # Body
-        #         (11, 13), (12, 14), (13, 15), (14, 16)
-        #     ]
-
-        #     p_color = [(0, 255, 255), (0, 191, 255), (0, 255, 102), (0, 77, 255), (0, 255, 0),  # Nose, LEye, REye, LEar, REar
-        #                (77, 255, 255), (77, 255, 204), (77, 204, 255), (191, 255, 77), (77, 191, 255), (191, 255, 77),  # LShoulder, RShoulder, LElbow, RElbow, LWrist, RWrist
-        #                (204, 77, 255), (77, 255, 204), (191, 77, 255), (77, 255, 191), (127, 77, 255), (77, 255, 127), (0, 255, 255)]  # LHip, RHip, LKnee, Rknee, LAnkle, RAnkle, Neck
-        #     line_color = [(0, 215, 255), (0, 255, 204), (0, 134, 255), (0, 255, 50),
-        #                   (77, 255, 222), (77, 196, 255), (77, 135, 255), (191, 255, 77), (77, 255, 77),
-        #                   (77, 222, 255), (255, 156, 127),
-        #                   (0, 127, 255), (255, 127, 77), (0, 77, 255), (255, 77, 36)]
+                          (77, 255, 222), (77, 196, 255), (77, 135, 255), (191, 255, 77), (77, 255, 77),
+                          (77, 222, 255), (255, 156, 127),
+                          (0, 127, 255), (255, 127, 77), (0, 77, 255), (255, 77, 36)]
         elif format == 'mpii':
             l_pair = [
                 (8, 9), (11, 12), (11, 10), (2, 1), (1, 0),
@@ -424,8 +441,11 @@ def vis_frame(frame, im_res, opt, vis_thres, format='coco'):
         if kp_num == 17:
             kp_preds = torch.cat((kp_preds, torch.unsqueeze((kp_preds[5, :] + kp_preds[6, :]) / 2, 0)))
             kp_scores = torch.cat((kp_scores, torch.unsqueeze((kp_scores[5, :] + kp_scores[6, :]) / 2, 0)))
-            vis_thres.append((vis_thres[5] + vis_thres[6]) / 2)
+            vis_thres.append(vis_thres[-1])
         if opt.tracking:
+            while isinstance(human['idx'], list):
+                human['idx'].sort()
+                human['idx'] = human['idx'][0]
             color = get_color_fast(int(abs(human['idx'])))
         else:
             color = BLUE
@@ -460,8 +480,8 @@ def vis_frame(frame, im_res, opt, vis_thres, format='coco'):
                     cv2.circle(bg, (int(cor_x), int(cor_y)), 2, color, -1)
                 else:
                     cv2.circle(bg, (int(cor_x), int(cor_y)), 2, p_color[n], -1)
-            # else:
-            #     cv2.circle(bg, (int(cor_x), int(cor_y)), 1, (255,255,255), 2)
+            else:
+                cv2.circle(bg, (int(cor_x), int(cor_y)), 1, (255,255,255), 2)
             # Now create a mask of logo and create its inverse mask also
             if n < len(p_color):
                 transparency = float(max(0, min(1, kp_scores[n])))
@@ -500,9 +520,347 @@ def vis_frame(frame, im_res, opt, vis_thres, format='coco'):
     return img
 
 
+def vis_frame_smpl(frame, im_res, smpl_output, opt, vis_thres):
+    '''
+    frame: frame image
+    im_res: result dict
+    smpl_output: predictions
+
+    return rendered image
+    '''
+    from .render_pytorch3d import render_mesh
+    
+    img = frame.copy()
+    height, width = img.shape[:2]
+    img_size = (height, width)
+    focal = np.array([1000, 1000])
+
+    all_transl = smpl_output['transl'].detach()
+    vertices = smpl_output['pred_vertices'].detach()
+    smpl_faces = smpl_output['smpl_faces']
+    # all_theta = pose_output.pred_theta_mats.detach().cpu().numpy()
+
+    for n_human, human in enumerate(im_res['result']):
+        kp_preds = human['keypoints']
+        kp_scores = human['kp_score']
+        score = human['bbox_score']
+        if score < 0.3:
+            continue
+        # bbox = human['box']
+        # x1y1wh
+        bbox = human['crop_box']
+        bbox_w = bbox[2]
+        # x1x2y1y2
+        bbox = [bbox[0], bbox[0]+bbox[2], bbox[1], bbox[1]+bbox[3]]#xmin,xmax,ymin,ymax
+        if opt.pose_track or opt.tracking:
+            while isinstance(human['idx'], list):
+                human['idx'].sort()
+                human['idx'] = human['idx'][0]
+            color = get_smpl_color(int(abs(human['idx'])))
+        else:
+            color = [int(0.65098039 * 255), int(0.74117647 * 255), int(0.85882353 * 255)]
+
+        # Draw bboxes
+        if opt.showbox:
+            if 'crop_box' not in human.keys():
+                from trackers.PoseFlow.poseflow_infer import get_box
+                keypoints = []
+                for n in range(kp_scores.shape[0]):
+                    keypoints.append(float(kp_preds[n, 0]))
+                    keypoints.append(float(kp_preds[n, 1]))
+                    keypoints.append(float(kp_scores[n]))
+                bbox = get_box(keypoints, height, width)
+
+            cv2.rectangle(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[3])), color, 2)
+            if opt.tracking:
+                cv2.putText(img, str(human['idx']), (int(bbox[0]), int((bbox[2] + 26))), DEFAULT_FONT, 1, BLACK, 2)
+
+        # Draw SMPL
+        # princpt = [(bbox[0] + bbox[1]) / 2, (bbox[2] + bbox[3]) / 2]
+
+        # renderer = SMPLRenderer(img_size=img_size, focal=focal,
+        #                         princpt=princpt)
+        transl = all_transl[[n_human]]
+        # transl[2] = transl[2] * 256 / (bbox[1] - bbox[0])
+
+        vert = vertices[[n_human]]
+        # print(all_theta[n_human])
+
+        # img = vis_smpl_3d(
+        #     vert, img, cam_root=transl,
+        #     f=focal, c=princpt, renderer=renderer, color=[c / 255 for c in color])
+        img = vis_smpl_3d(
+            vert, transl, img, bbox_w, smpl_faces, render_mesh, color=color
+        )
+
+    return img
+
+
+
+def vis_smpl_3d(verts_batch, transl_batch, image, bbox_w, smpl_faces, render_mesh, color=None):
+    focal = 1000.0
+
+    focal = focal / 256 * bbox_w
+
+    color_batch = render_mesh(
+        vertices=verts_batch, faces=smpl_faces,
+        translation=transl_batch,
+        focal_length=focal, height=image.shape[0], width=image.shape[1],
+        color=color)
+
+    valid_mask_batch = (color_batch[:, :, :, [-1]] > 0)
+    image_vis_batch = color_batch[:, :, :, :3] * valid_mask_batch
+    image_vis_batch = (image_vis_batch * 255).cpu().numpy()
+
+    color = image_vis_batch[0]
+    valid_mask = valid_mask_batch[0].cpu().numpy()
+    input_img = image
+    alpha = 0.9
+    image_vis = alpha * color[:, :, :3] * valid_mask + (
+        1 - alpha) * input_img * valid_mask + (1 - valid_mask) * input_img
+
+    image_vis = image_vis.astype(np.uint8)
+    # image_vis = cv2.cvtColor(image_vis, cv2.COLOR_RGB2BGR)
+
+    return image_vis
+
+
+def vis_frame_skeleton(frame, im_res, smpl_output, opt, vis_thres):
+    '''
+    frame: frame image
+    im_res: result dict
+    smpl_output: predictions
+
+    return rendered image
+    '''
+    img = frame.copy()
+    height, width = img.shape[:2]
+    focal = np.array([1000, 1000])
+
+    all_transl = smpl_output['transl'].detach().cpu().numpy()
+
+    l_pair = [(15, 12), (12, 9), 
+        (9, 13), (13, 16), (16, 18), (18, 20), (20, 22),
+        (9, 14), (14, 17), (17, 19), (19, 21), (21, 23), 
+        (9, 6), (6, 3), (3, 0),
+        (0, 1), (1, 4), (4, 7), (7, 10),
+        (0, 2), (2, 5), (5, 8), (8, 11)
+    ]
+
+    cmap = plt.get_cmap("rainbow")
+    colors = [cmap(i) for i in np.linspace(0, 1, len(l_pair) + 2)]
+    colors = [np.array((c[0], c[1], c[2])) for c in colors]
+
+    fig = plt.figure(figsize=(12, 9), dpi=100)
+    ax = fig.add_subplot(111, projection="3d", autoscale_on=False)
+
+    for n_human, human in enumerate(im_res['result']):
+        kp_preds = human['keypoints']
+        kp_scores = human['kp_score']
+        xyz_preds = human['pred_xyz_jts']
+        score = human['bbox_score']
+        if score < 0.3:
+            continue
+        # x1y1wh
+        bbox = human['crop_box']
+        # x1x2y1y2
+        bbox = [bbox[0], bbox[0] + bbox[2], bbox[1], bbox[1] + bbox[3]] # xmin,xmax,ymin,ymax
+
+        if opt.pose_track or opt.tracking:
+            while isinstance(human['idx'], list):
+                human['idx'].sort()
+                human['idx'] = human['idx'][0]
+            color = get_smpl_color(int(abs(human['idx'])))
+        else:
+            color = BLUE
+        
+        # Draw bboxes
+        if opt.showbox:
+            if 'crop_box' not in human.keys():
+                from trackers.PoseFlow.poseflow_infer import get_box
+                keypoints = []
+                for n in range(kp_scores.shape[0]):
+                    keypoints.append(float(kp_preds[n, 0]))
+                    keypoints.append(float(kp_preds[n, 1]))
+                    keypoints.append(float(kp_scores[n]))
+                bbox = get_box(keypoints, height, width)
+
+            cv2.rectangle(img, (int(bbox[0]), int(bbox[2])), (int(bbox[1]), int(bbox[3])), color, 2)
+            if opt.tracking:
+                cv2.putText(img, str(human['idx']), (int(bbox[0]), int((bbox[2] + 26))), DEFAULT_FONT, 1, BLACK, 2)
+
+        # Draw keypoints
+        for n in range(len(l_pair)):
+            visible_1 = kp_scores[l_pair[n][0], 0] > vis_thres[l_pair[n][0]]
+            visible_2 = kp_scores[l_pair[n][1], 0] > vis_thres[l_pair[n][1]]
+            cor_x_1, cor_y_1 = int(kp_preds[l_pair[n][0], 0]), int(
+                kp_preds[l_pair[n][0], 1]
+            )
+            cor_x_2, cor_y_2 = int(kp_preds[l_pair[n][1], 0]), int(
+                kp_preds[l_pair[n][1], 1]
+            )
+            if opt.tracking:
+                if visible_1:
+                    cv2.circle(img, (cor_x_1, cor_y_1), 3, color, -1)
+                if visible_2:
+                    cv2.circle(img, (cor_x_2, cor_y_2), 3, color, -1)
+                if visible_1 and visible_2:
+                    cv2.line(
+                        img,
+                        (cor_x_1, cor_y_1),
+                        (cor_x_2, cor_y_2),
+                        color,
+                        2 * int(kp_scores[l_pair[n][0]] + kp_scores[l_pair[n][1]]) + 1,
+                    )
+            else:
+                if visible_1:
+                    cv2.circle(
+                        img,
+                        (cor_x_1, cor_y_1),
+                        3,
+                        (
+                            int(colors[n][0] * 255),
+                            int(colors[n][1] * 255),
+                            int(colors[n][2] * 255),
+                        ),
+                        -1,
+                    )
+                if visible_2:
+                    cv2.circle(
+                        img,
+                        (cor_x_2, cor_y_2),
+                        3,
+                        (
+                            int(colors[n][0] * 255),
+                            int(colors[n][1] * 255),
+                            int(colors[n][2] * 255),
+                        ),
+                        -1,
+                    )
+                if visible_1 and visible_2:
+                    cv2.line(
+                        img,
+                        (cor_x_1, cor_y_1),
+                        (cor_x_2, cor_y_2),
+                        (
+                            int(colors[n][0] * 255),
+                            int(colors[n][1] * 255),
+                            int(colors[n][2] * 255),
+                        ),
+                        2 * int(kp_scores[l_pair[n][0]] + kp_scores[l_pair[n][1]]) + 1,
+                    )
+
+        # Draw 3d skeleton
+        transl = all_transl[n_human].squeeze()
+        transl[0] = transl[0] + ((bbox[0] + bbox[1]) / 2) * transl[2] / focal[0]
+        transl[1] = transl[1] + ((bbox[2] + bbox[3]) / 2) * transl[2] / focal[1]
+        transl[2] = transl[2] * 256 / (bbox[1] - bbox[0])
+
+        xyz_preds = xyz_preds + transl
+        xyz_preds = xyz_preds.numpy()
+
+        for l in range(len(l_pair)):
+            i1 = l_pair[l][0]
+            i2 = l_pair[l][1]
+            x = np.array([xyz_preds[i1, 0], xyz_preds[i2, 0]])
+            y = np.array([xyz_preds[i1, 1], xyz_preds[i2, 1]])
+            z = np.array([xyz_preds[i1, 2], xyz_preds[i2, 2]])
+
+            if kp_scores[i1, 0] > vis_thres[i1] and kp_scores[i2, 0] > vis_thres[i2]:
+                ax.plot(
+                    x,
+                    z,
+                    -y,
+                    color=colors[l] if not opt.tracking else np.array(color) / 255,
+                    linewidth=2,
+                )
+            if kp_scores[i1, 0] > vis_thres[i1]:
+                ax.scatter(
+                    xyz_preds[i1, 0],
+                    xyz_preds[i1, 2],
+                    -xyz_preds[i1, 1],
+                    color=colors[l] if not opt.tracking else np.array(color) / 255,
+                    marker="o",
+                )
+            if kp_scores[i2, 0] > vis_thres[i2]:
+                ax.scatter(
+                    xyz_preds[i2, 0],
+                    xyz_preds[i2, 2],
+                    -xyz_preds[i2, 1],
+                    color=colors[l] if not opt.tracking else np.array(color) / 255,
+                    marker="o",
+                )
+
+
+    ax.set_xlim([-2, 6])
+    ax.set_ylim([14, 20])
+    ax.set_zlim([-4, 0])
+
+    # ax.axes.xaxis.set_ticklabels([])
+    # ax.axes.yaxis.set_ticklabels([])
+    # ax.axes.zaxis.set_ticklabels([])
+
+    ax.view_init(azim=-70, elev=15)
+
+    # Convert plt to cv2
+    skeleton_img = mplfig_to_npimage(fig)
+    skeleton_img = cv2.cvtColor(skeleton_img, cv2.COLOR_RGB2BGR)
+    
+    plt.close(fig)
+    cat_img = np.ones(
+        (
+            max(skeleton_img.shape[0], img.shape[0]),
+            skeleton_img.shape[1] + img.shape[1],
+            3,
+        ), dtype=np.uint8
+    ) * 255
+    cat_img[
+        (cat_img.shape[0] - img.shape[0]) // 2 : (cat_img.shape[0] - img.shape[0]) // 2
+        + img.shape[0],
+        : img.shape[1],
+        :,
+    ] = img
+    cat_img[
+        (cat_img.shape[0] - skeleton_img.shape[0])
+        // 2 : (cat_img.shape[0] - skeleton_img.shape[0])
+        // 2
+        + skeleton_img.shape[0],
+        img.shape[1] :,
+        :,
+    ] = skeleton_img
+
+    return cat_img
+
+
 def getTime(time1=0):
     if not time1:
+
         return time.time()
     else:
         interval = time.time() - time1
         return time.time(), interval
+
+
+def mplfig_to_npimage(fig):
+    """
+    Converts a matplotlib figure to a RGB frame after updating the canvas.
+    Modified from https://github.com/Zulko/moviepy/blob/master/moviepy/video/io/bindings.py
+    """
+    #  only the Agg backend now supports the tostring_rgb function
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    canvas = FigureCanvasAgg(fig)
+    canvas.draw()  # update/draw the elements
+
+    # get the width and the height to resize the matrix
+    l, b, w, h = canvas.figure.bbox.bounds
+    w, h = int(w), int(h)
+
+    # exports the canvas to a string buffer and then to a numpy nd.array
+    buf = canvas.tostring_rgb()
+    image = np.frombuffer(buf, dtype=np.uint8).reshape(h, w, 3)
+
+    b = fig.axes[0].get_window_extent()
+    image = image[int(b.y0) : int(b.y1), int(b.x0) : int(b.x1), :]
+
+    return image

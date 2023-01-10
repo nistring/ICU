@@ -1,13 +1,6 @@
 # -*- coding: utf-8 -*-
-import sys
-import os
-root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(os.path.dirname(__file__)))))
-sys.path.append(root)
-
-
 import json
 import os
-from turtle import window_width
 import zipfile
 import time
 from multiprocessing.dummy import Pool as ThreadPool
@@ -663,48 +656,6 @@ def PCK_match_fullbody(pick_pred, pred_score, all_preds, ref_dist):
     num_match_keypoints = (num_match_keypoints_body + num_match_keypoints_face + num_match_keypoints_hand) / mask.sum() / 2 * kp_nums
     return num_match_keypoints
 
-def write_txt(all_results, outputpath, dtype):
-
-    assert dtype in ['train', 'test'], "Data type is not either train or test"
-
-    upper_body = [0, 5, 6, 7, 8, 9, 10, 11, 12]
-    width = 640
-    height = 480
-    shift = 10
-
-
-    with h5py.File(os.path.join(root, 'datasets', dtype, f'ICU_{dtype}_labels.h5'), 'r+') as result_for_A2J:
-
-        for i, im_res in enumerate(all_results):
-            im_name = im_res['imgname']
-            image_id = int(os.path.basename(im_name).split('.')[0].split('_')[-1])
-
-            result_for_yolo = []
-            for human in im_res['result']:
-                if 'keypoints' in human.keys():
-                    keypoints = human['keypoints'][upper_body].numpy()
-                    x_min = max(keypoints[:, 0].min() - shift, 0)
-                    x_max = min(keypoints[:, 0].max() + shift, width)
-                    y_min = max(keypoints[:, 1].min() - shift, 0)
-                    y_max = min(keypoints[:, 1].max() + 2*shift, height)
-
-                    w = x_max - x_min
-                    h = y_max - y_min
-
-                    x = (x_min+w/2) / width
-                    y = (y_min+h/2) / height
-                    w /= width
-                    h /= height
-                    result_for_yolo.append(f'0 {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n')
-
-                    if len(im_res['result']) == 1:
-                        result_for_A2J['is_valid'][image_id-1] = 1
-                        result_for_A2J['image_coordinates'][image_id-1] = keypoints
-                        result_for_A2J['bounding_box'][image_id-1] = np.array(list(map(int,[x_min, y_min, x_max, y_max])))
-            
-            with open(os.path.join(root, 'datasets', dtype, 'labels', str(image_id) + '.txt'), 'w') as f:
-                f.writelines(result_for_yolo)
-
 
 def write_json(all_results, outputpath, form=None, for_eval=False, outputfile='alphapose-results.json'):
     '''
@@ -738,6 +689,12 @@ def write_json(all_results, outputpath, form=None, for_eval=False, outputfile='a
             #pose track results by PoseFlow
             if 'idx' in human.keys():
                 result['idx'] = human['idx']
+            
+            # 3d pose
+            if 'pred_xyz_jts' in human.keys():
+                pred_xyz_jts = human['pred_xyz_jts']
+                pred_xyz_jts = pred_xyz_jts.cpu().numpy().tolist()
+                result['pred_xyz_jts'] = pred_xyz_jts
 
             if form == 'cmu': # the form of CMU-Pose
                 if result['image_id'] not in json_results_cmu.keys():
@@ -834,3 +791,23 @@ def ppose_nms_validate_preprocess(_res):
 
 
     return _tmp_data
+
+'''
+This is a user-defined function.
+It returns coordinates of proposed skeletons and bounding boxes.
+'''
+def write_txt(all_results, outputpath, dtype):
+
+    assert dtype in ['train', 'test'], "Data type is not either train or test"
+
+    upper_body = [0, 5, 6, 7, 8, 9, 10, 11, 12]
+
+    for im_res in all_results:
+        im_name = im_res['imgname']
+        image_id = int(os.path.basename(im_name).split('.')[0].split('_')[-1])
+
+        with h5py.File(os.path.join(outputpath, f'ICU_{dtype}_labels.h5'), 'r+') as f:
+            if len(im_res['result']) == 1:
+                human = im_res['result'][0]
+                f['image_coordinates'][image_id] = human['keypoints'][upper_body][:,:2].numpy()
+        

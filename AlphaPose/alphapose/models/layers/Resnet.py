@@ -136,7 +136,8 @@ class ResNet(nn.Module):
     def __init__(self, architecture, norm_layer=nn.BatchNorm2d, dcn=None, stage_with_dcn=(False, False, False, False)):
         super(ResNet, self).__init__()
         self._norm_layer = norm_layer
-        assert architecture in ["resnet18", "resnet50", "resnet101", 'resnet152']
+        self.architecture = architecture
+        assert architecture in ["resnet18", "resnet34", "resnet50", "resnet101", 'resnet152']
         layers = {
             'resnet18': [2, 2, 2, 2],
             'resnet34': [3, 4, 6, 3],
@@ -190,11 +191,23 @@ class ResNet(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample,
-                            norm_layer=self._norm_layer, dcn=dcn))
-        self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes,
+        if self.architecture == "resnet18" or self.architecture == 'resnet34':
+            layers.append(block(self.inplanes, planes, stride, downsample,
+                                norm_layer=self._norm_layer))
+
+            self.inplanes = planes * block.expansion
+            for i in range(1, blocks):
+                layers.append(block(self.inplanes, planes,
+                                    norm_layer=self._norm_layer))
+
+        else:
+            layers.append(block(self.inplanes, planes, stride, downsample,
                                 norm_layer=self._norm_layer, dcn=dcn))
+
+            self.inplanes = planes * block.expansion
+
+            for i in range(1, blocks):
+                layers.append(block(self.inplanes, planes,
+                                    norm_layer=self._norm_layer))
 
         return nn.Sequential(*layers)

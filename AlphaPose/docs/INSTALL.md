@@ -3,11 +3,11 @@
 ### Requirements
 * Nvidia device with CUDA, [example for Ubuntu 20.04](https://linuxconfig.org/how-to-install-cuda-on-ubuntu-20-04-focal-fossa-linux)
 (if you have no nvidia device, delete [this line](https://github.com/MVIG-SJTU/AlphaPose/blob/master/setup.py#L211) from setup.py
-* Python 3.5+
+* Python 3.7+
 * Cython
-* PyTorch 1.1+, for users with PyTorch 1.5 and 1.5+, please merge the pull request #592 by:
-  `git pull origin pull/592/head`
-* torchvision 0.3.0+
+* PyTorch 1.11+, for users who want to use 1.5 < PyTorch < 1.11, please switch to the `pytorch<1.11` branch by:
+  `git checkout "pytorch<1.11"`; for users who want to use PyTorch < 1.5, please switch to the `pytorch<1.5` branch by: `git checkout "pytorch<1.5"`
+* torchvision 0.12.0+
 * numpy 
 * python-package setuptools >= 40.0, reported by [this issue](https://github.com/MVIG-SJTU/AlphaPose/issues/838)
 * Linux, [Windows user check here](#Windows)
@@ -19,15 +19,14 @@
 Install conda from [here](https://repo.anaconda.com/miniconda/), Miniconda3-latest-(OS)-(platform).
 ```shell
 # 1. Create a conda virtual environment.
-conda create -n alphapose python=3.6 -y
+conda create -n alphapose python=3.7 -y
 conda activate alphapose
 
 # 2. Install PyTorch
-conda install pytorch==1.1.0 torchvision==0.3.0
+conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
 
 # 3. Get AlphaPose
 git clone https://github.com/MVIG-SJTU/AlphaPose.git
-# git pull origin pull/592/head if you use PyTorch>=1.5
 cd AlphaPose
 
 
@@ -43,18 +42,22 @@ sudo apt-get install locales
 export LANG=C.UTF-8
 ######################################################
 python setup.py build develop
+
+# 5. Install PyTorch3D (Optional, only for visualization)
+conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+conda install -c bottler nvidiacub
+pip install git+ssh://git@github.com/facebookresearch/pytorch3d.git@stable
 ```
 
 #### Install with pip
 ```shell
 # 1. Install PyTorch
-pip3 install torch==1.1.0 torchvision==0.3.0
+pip3 install torch torchvision --extra-index-url https://download.pytorch.org/whl/cu113
 
 # Check torch environment by:  python3 -m torch.utils.collect_env
 
 # 2. Get AlphaPose
 git clone https://github.com/MVIG-SJTU/AlphaPose.git
-# git pull origin pull/592/head if you use PyTorch>=1.5
 cd AlphaPose
 
 # 3. install
@@ -63,6 +66,11 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64/:$LD_LIBRARY_PATH
 pip install cython
 sudo apt-get install libyaml-dev
 python3 setup.py build develop --user
+
+# 4. Install PyTorch3D (Optional, only for visualization)
+conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+conda install -c bottler nvidiacub
+pip install git+ssh://git@github.com/facebookresearch/pytorch3d.git@stable
 ```
 
 #### Windows
@@ -74,9 +82,8 @@ If your OS platform is `Windows`, make sure that Windows C++ build tool like vis
 
 ### Models
 1. Download the object detection model manually: **yolov3-spp.weights**([Google Drive](https://drive.google.com/open?id=1D47msNOOiJKvPOXlnpyzdKA3k6E97NTC) | [Baidu pan](https://pan.baidu.com/s/1Zb2REEIk8tcahDa8KacPNA)). Place it into `detector/yolo/data`.
-
-2. Download our pose models. Place them into `pretrained_models`. All models and details are available in our [Model Zoo](./MODEL_ZOO.md).
-
+2. (Optional) If you want to use [YOLOX](https://github.com/Megvii-BaseDetection/YOLOX) as the detector, you can download the weights [here](https://github.com/Megvii-BaseDetection/YOLOX), and place them into `detector/yolox/data`. We recommend [yolox-l](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_l.pth) and [yolox-x](https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_x.pth).
+3. Download our pose models. Place them into `pretrained_models`. All models and details are available in our [Model Zoo](./MODEL_ZOO.md).
 2. For pose tracking, please refer to our [tracking docments](../trackers) for model download
 
 

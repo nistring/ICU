@@ -5,12 +5,15 @@
 
 
 ## News!
+- Nov 2022: [**AlphaPose paper**](http://arxiv.org/abs/2211.03375) is released! Checkout the paper for more details about this project.
+- Sep 2022: [**Jittor** version](https://github.com/tycoer/AlphaPose_jittor) of AlphaPose is released! It achieves 1.45x speed up with resnet50 backbone on the training stage.
+- July 2022: [**v0.6.0** version](https://github.com/MVIG-SJTU/AlphaPose) of AlphaPose is released! [HybrIK](https://github.com/Jeff-sjtu/HybrIK) for 3D pose and shape estimation is supported!
 - Jan 2022: [**v0.5.0** version](https://github.com/MVIG-SJTU/AlphaPose) of AlphaPose is released! Stronger whole body(face,hand,foot) keypoints! More models are availabel. Checkout [docs/MODEL_ZOO.md](docs/MODEL_ZOO.md)
-- Aug 2020: [**v0.4.0** version](https://github.com/MVIG-SJTU/AlphaPose) of AlphaPose is released! Stronger tracking! Include whole body(face,hand,foot) keypoints! [Colab](https://colab.research.google.com/drive/14Zgotr2_F0LfvcpRi03uQdMvUbLQSgok?usp=sharing) now available.
+- Aug 2020: [**v0.4.0** version](https://github.com/MVIG-SJTU/AlphaPose) of AlphaPose is released! Stronger tracking! Include whole body(face,hand,foot) keypoints! [Colab](https://colab.research.google.com/drive/1c7xb_7U61HmeJp55xjXs24hf1GUtHmPs?usp=sharing) now available.
 - Dec 2019: [**v0.3.0** version](https://github.com/MVIG-SJTU/AlphaPose) of AlphaPose is released! Smaller model, higher accuracy!
 - Apr 2019: [**MXNet** version](https://github.com/MVIG-SJTU/AlphaPose/tree/mxnet) of AlphaPose is released! It runs at **23 fps** on COCO validation set.
 - Feb 2019: [CrowdPose](https://github.com/MVIG-SJTU/AlphaPose/docs/CrowdPose.md) is integrated into AlphaPose Now!
-- Dec 2018: [General version](https://github.com/MVIG-SJTU/AlphaPose/PoseFlow) of PoseFlow is released! 3X Faster and support pose tracking results visualization!
+- Dec 2018: [General version](https://github.com/MVIG-SJTU/AlphaPose/trackers/PoseFlow) of PoseFlow is released! 3X Faster and support pose tracking results visualization!
 - Sep 2018: [**v0.2.0** version](https://github.com/MVIG-SJTU/AlphaPose/tree/pytorch) of AlphaPose is released! It runs at **20 fps** on COCO validation set (4.6 people per image on average) and achieves 71 mAP!
 
 ## AlphaPose
@@ -30,6 +33,10 @@ AlphaPose supports both Linux and **Windows!**
 <div align="center">
     <img src="docs/alphapose_136.gif", width="400"alt><br>
     <b><a href="https://github.com/Fang-Haoshu/Halpe-FullBody">Halpe 136 keypoints</a></b> + tracking
+</div>
+<div align="center">
+    <img src="docs/alphapose_hybrik_smpl.gif", width="400"alt><br>
+    <b><a href="https://github.com/Jeff-sjtu/HybrIK">SMPL</a></b> + tracking
 </div>
 
 
@@ -83,13 +90,18 @@ Please check out [docs/INSTALL.md](docs/INSTALL.md)
 Please check out [docs/MODEL_ZOO.md](docs/MODEL_ZOO.md)
 
 ## Quick Start
-- **Colab**: We provide a [colab example](https://colab.research.google.com/drive/14Zgotr2_F0LfvcpRi03uQdMvUbLQSgok?usp=sharing) for your quick start.
+- **Colab**: We provide a [colab example](https://colab.research.google.com/drive/1c7xb_7U61HmeJp55xjXs24hf1GUtHmPs?usp=sharing) for your quick start.
 
 - **Inference**: Inference demo
 ``` bash
 ./scripts/inference.sh ${CONFIG} ${CHECKPOINT} ${VIDEO_NAME} # ${OUTPUT_DIR}, optional
 ```
-For high level API, please refer to `./scripts/demo_api.py`
+
+Inference SMPL (Download the SMPL model `basicModel_neutral_lbs_10_207_0_v1.0.0.pkl` from [here](https://smpl.is.tue.mpg.de/) and put it in `model_files/`).
+``` bash
+./scripts/inference_3d.sh ./configs/smpl/256x192_adam_lr1e-3-res34_smpl_24_3d_base_2x_mix.yaml ${CHECKPOINT} ${VIDEO_NAME} # ${OUTPUT_DIR}, optional
+```
+For high level API, please refer to `./scripts/demo_api.py`. To enable tracking, please refer to [this page](./trackers).
 
 - **Training**: Train from scratch
 ``` bash
@@ -108,6 +120,8 @@ Demo using `FastPose` model.
 ./scripts/inference.sh configs/coco/resnet/256x192_res50_lr1e-3_1x.yaml pretrained_models/fast_res50_256x192.pth ${VIDEO_NAME}
 #or
 python scripts/demo_inference.py --cfg configs/coco/resnet/256x192_res50_lr1e-3_1x.yaml --checkpoint pretrained_models/fast_res50_256x192.pth --indir examples/demo/
+#or if you want to use yolox-x as the detector
+python scripts/demo_inference.py --detector yolox-x --cfg configs/coco/resnet/256x192_res50_lr1e-3_1x.yaml --checkpoint pretrained_models/fast_res50_256x192.pth --indir examples/demo/
 ```
 
 Train `FastPose` on mscoco dataset.
@@ -122,22 +136,22 @@ More detailed inference options and examples, please refer to [GETTING_STARTED.m
 Check out [faq.md](docs/faq.md) for faq. If it can not solve your problems or if you find any bugs, don't hesitate to comment on GitHub or make a pull request!
 
 ## Contributors
-AlphaPose is based on RMPE(ICCV'17), authored by [Hao-Shu Fang](https://fang-haoshu.github.io/), Shuqin Xie, [Yu-Wing Tai](https://scholar.google.com/citations?user=nFhLmFkAAAAJ&hl=en) and [Cewu Lu](http://www.mvig.org/), [Cewu Lu](http://mvig.sjtu.edu.cn/) is the corresponding author. Currently, it is maintained by [Jiefeng Li\*](http://jeff-leaf.site/), [Hao-shu Fang\*](https://fang-haoshu.github.io/),  [Yuliang Xiu](http://xiuyuliang.cn/about/) and [Chao Xu](http://www.isdas.cn/). 
+AlphaPose is based on RMPE(ICCV'17), authored by [Hao-Shu Fang](https://fang-haoshu.github.io/), Shuqin Xie, [Yu-Wing Tai](https://scholar.google.com/citations?user=nFhLmFkAAAAJ&hl=en) and [Cewu Lu](http://www.mvig.org/), [Cewu Lu](http://mvig.sjtu.edu.cn/) is the corresponding author. Currently, it is maintained by [Jiefeng Li\*](http://jeff-leaf.site/), [Hao-shu Fang\*](https://fang-haoshu.github.io/),  [Haoyi Zhu](https://github.com/HaoyiZhu), [Yuliang Xiu](http://xiuyuliang.cn/about/) and [Chao Xu](http://www.isdas.cn/). 
 
 The main contributors are listed in [doc/contributors.md](docs/contributors.md).
 
 ## TODO
 - [x] Multi-GPU/CPU inference
-- [ ] 3D pose
+- [x] 3D pose
 - [x] add tracking flag
 - [ ] PyTorch C++ version
-- [ ] Add MPII and AIC data
+- [x] Add model trained on mixture dataset (Check the model zoo)
 - [ ] dense support
 - [x] small box easy filter
 - [x] Crowdpose support
 - [ ] Speed up PoseFlow
-- [ ] Add stronger/light detectors and the [mobile pose](https://github.com/YuliangXiu/MobilePose-pytorch)
-- [x] High level API
+- [x] Add stronger/light detectors (yolox is now supported)
+- [x] High level API (check the scripts/demo_api.py)
 
 We would really appreciate if you can offer any help and be the [contributor](docs/contributors.md) of AlphaPose.
 
@@ -145,6 +159,13 @@ We would really appreciate if you can offer any help and be the [contributor](do
 ## Citation
 Please cite these papers in your publications if it helps your research:
 
+    @article{alphapose,
+      author = {Fang, Hao-Shu and Li, Jiefeng and Tang, Hongyang and Xu, Chao and Zhu, Haoyi and Xiu, Yuliang and Li, Yong-Lu and Lu, Cewu},
+      journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+      title = {AlphaPose: Whole-Body Regional Multi-Person Pose Estimation and Tracking in Real-Time},
+      year = {2022}
+    }
+    
     @inproceedings{fang2017rmpe,
       title={{RMPE}: Regional Multi-person Pose Estimation},
       author={Fang, Hao-Shu and Xie, Shuqin and Tai, Yu-Wing and Lu, Cewu},
@@ -152,12 +173,25 @@ Please cite these papers in your publications if it helps your research:
       year={2017}
     }
 
-    @article{li2018crowdpose,
-      title={CrowdPose: Efficient Crowded Scenes Pose Estimation and A New Benchmark},
-      author={Li, Jiefeng and Wang, Can and Zhu, Hao and Mao, Yihuan and Fang, Hao-Shu and Lu, Cewu},
-      journal={arXiv preprint arXiv:1812.00324},
-      year={2018}
+    @inproceedings{li2019crowdpose,
+        title={Crowdpose: Efficient crowded scenes pose estimation and a new benchmark},
+        author={Li, Jiefeng and Wang, Can and Zhu, Hao and Mao, Yihuan and Fang, Hao-Shu and Lu, Cewu},
+        booktitle={Proceedings of the IEEE/CVF conference on computer vision and pattern recognition},
+        pages={10863--10872},
+        year={2019}
     }
+
+If you used the 3D mesh reconstruction module, please also cite:
+
+    @inproceedings{li2021hybrik,
+        title={Hybrik: A hybrid analytical-neural inverse kinematics solution for 3d human pose and shape estimation},
+        author={Li, Jiefeng and Xu, Chao and Chen, Zhicun and Bian, Siyuan and Yang, Lixin and Lu, Cewu},
+        booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+        pages={3383--3393},
+        year={2021}
+    }
+
+If you used the PoseFlow tracking module, please also cite:
 
     @inproceedings{xiu2018poseflow,
       author = {Xiu, Yuliang and Li, Jiefeng and Wang, Haoyu and Fang, Yinghong and Lu, Cewu},
@@ -165,6 +199,8 @@ Please cite these papers in your publications if it helps your research:
       booktitle={BMVC},
       year = {2018}
     }
+
+
 
 
 

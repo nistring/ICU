@@ -17,7 +17,7 @@ import numpy as np
 
 from alphapose.utils.transforms import get_func_heatmap_to_coord
 from alphapose.utils.pPose_nms import pose_nms
-from alphapose.utils.presets import SimpleTransform
+from alphapose.utils.presets import SimpleTransform, SimpleTransform3DSMPL
 from alphapose.utils.transforms import flip, flip_heatmap
 from alphapose.models import builder
 from alphapose.utils.config import update_config
@@ -81,14 +81,34 @@ class DetectionLoader():
 
         self._sigma = cfg.DATA_PRESET.SIGMA
 
-        pose_dataset = builder.retrieve_dataset(self.cfg.DATASET.TRAIN)
         if cfg.DATA_PRESET.TYPE == 'simple':
+            pose_dataset = builder.retrieve_dataset(self.cfg.DATASET.TRAIN)
             self.transformation = SimpleTransform(
                 pose_dataset, scale_factor=0,
                 input_size=self._input_size,
                 output_size=self._output_size,
                 rot=0, sigma=self._sigma,
                 train=False, add_dpg=False, gpu_device=self.device)
+        elif cfg.DATA_PRESET.TYPE == 'simple_smpl':
+            # TODO: new features
+            from easydict import EasyDict as edict
+            dummpy_set = edict({
+                'joint_pairs_17': None,
+                'joint_pairs_24': None,
+                'joint_pairs_29': None,
+                'bbox_3d_shape': (2.2, 2.2, 2.2)
+            })
+            self.transformation = SimpleTransform3DSMPL(
+                dummpy_set, scale_factor=cfg.DATASET.SCALE_FACTOR,
+                color_factor=cfg.DATASET.COLOR_FACTOR,
+                occlusion=cfg.DATASET.OCCLUSION,
+                input_size=cfg.MODEL.IMAGE_SIZE,
+                output_size=cfg.MODEL.HEATMAP_SIZE,
+                depth_dim=cfg.MODEL.EXTRA.DEPTH_DIM,
+                bbox_3d_shape=(2.2, 2,2, 2.2),
+                rot=cfg.DATASET.ROT_FACTOR, sigma=cfg.MODEL.EXTRA.SIGMA,
+                train=False, add_dpg=False, gpu_device=self.device,
+                loss_type=cfg.LOSS['TYPE'])
 
         self.image = (None, None, None, None)
         self.det = (None, None, None, None, None, None, None)
@@ -176,6 +196,21 @@ class DataWriter():
         self.eval_joints = list(range(cfg.DATA_PRESET.NUM_JOINTS))
         self.heatmap_to_coord = get_func_heatmap_to_coord(cfg)
         self.item = (None, None, None, None, None, None, None)
+        
+        loss_type = self.cfg.DATA_PRESET.get('LOSS_TYPE', 'MSELoss')
+        num_joints = self.cfg.DATA_PRESET.NUM_JOINTS
+        if loss_type == 'MSELoss':
+            self.vis_thres = [0.4] * num_joints
+        elif 'JointRegression' in loss_type:
+            self.vis_thres = [0.05] * num_joints
+        elif loss_type == 'Combined':
+            if num_joints == 68:
+                hand_face_num = 42
+            else:
+                hand_face_num = 110
+            self.vis_thres = [0.4] * (num_joints - hand_face_num) + [0.05] * hand_face_num
+
+        self.use_heatmap_loss = (self.cfg.DATA_PRESET.get('LOSS_TYPE', 'MSELoss') == 'MSELoss')
 
     def start(self):
         # start to read pose estimation results
@@ -223,7 +258,7 @@ class DataWriter():
             preds_scores = torch.cat(pose_scores)
 
             boxes, scores, ids, preds_img, preds_scores, pick_ids = \
-                pose_nms(boxes, scores, ids, preds_img, preds_scores, self.opt.min_box_area)
+                pose_nms(boxes, scores, ids, preds_img, preds_scores, self.opt.min_box_area, use_heatmap_loss=self.use_heatmap_loss)
 
             _result = []
             for k in range(len(scores)):
@@ -342,7 +377,7 @@ class SingleImageAlphaPose():
 
     def vis(self, image, pose):
         if pose is not None:
-            image = self.writer.vis_frame(image, pose, self.writer.opt)
+            image = self.writer.vis_frame(image, pose, self.writer.opt, self.writer.vis_thres)
         return image
 
     def writeJson(self, final_result, outputpath, form='coco', for_eval=False):

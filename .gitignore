@@ -1,2 +1,5 @@
 datasets/
-ICU data/
+ICU_data/
+runs/
+ICU_data.zip
+traced_model.pt
