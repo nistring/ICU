@@ -204,11 +204,6 @@ def visualize_depth_map(depth_map, keypoints):
         colormap=cv.COLORMAP_OCEAN,
     )
 
-    # return self.depth_map, self.keypoints, self.depth_mean, self.box
-    ########## data augmentation visualization ##########
-    # depth_save = self.depth_map + depth_map_mean
-    # depth_save[depth_save < 0] = 0
-    # depth_save =  cv.applyColorMap((depth_save * 255 / depth_save.max()).astype(np.uint8), colormap=cv.COLORMAP_OCEAN)
     p = keypoints[:, :2].astype(np.int16)
     linewidth = 2
     cv.line(
@@ -226,4 +221,4 @@ def visualize_depth_map(depth_map, keypoints):
     cv.line(depth_save, p[1], p[7], (255, 51, 51), linewidth)
     cv.line(depth_save, p[2], p[8], (230, 0, 230), linewidth)
 
-    cv.imwrite("/home/ubuntu/workspace/@ICU/A2J/res/test.jpg", depth_save)
+    cv.imwrite("/home/ubuntu/workspace/@ICU/A2J/res/augmentation.jpg", depth_save)

@@ -3,25 +3,46 @@ import torch
 import torch.optim.lr_scheduler as lr_scheduler
 import logging
 import torch.utils.data
-import numpy as np
 import model
 from tqdm import tqdm
 import time
 import argparse
 from dataloader import build_test_dataloader, build_train_dataloader
 import yaml
-import h5py
+from pathlib import Path
+import glob
+import re
 
 root = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-check_dir = os.path.join(root, "checkpoint")
+runs_dir = os.path.join(root, "runs")
 res_dir = os.path.join(root, "res")
+
+# Adopted from yolov7 project
+def increment_path(path, exist_ok=True, sep=''):
+    # Increment path, i.e. runs/exp --> runs/exp{sep}0, runs/exp{sep}1 etc.
+    path = Path(path)  # os-agnostic
+    if (path.exists() and exist_ok) or (not path.exists()):
+        return str(path)
+    else:
+        dirs = glob.glob(f"{path}{sep}*")  # similar paths
+        matches = [re.search(rf"%s{sep}(\d+)" % path.stem, d) for d in dirs]
+        i = [int(m.groups()[0]) for m in matches if m]  # indices
+        n = max(i) + 1 if i else 2  # increment number
+        return f"{path}{sep}{n}"  # update path
 
 
 def resize_keypoints(keypoints, box, input_size):
+    '''
+    Inputs : Coordinates of keypoints in a cropped box
+    Outputs : Coordinates of keypoints resized to input_size (256 x 256)
+    '''
     box = box.unsqueeze(1)
     return keypoints * (box[:,:,2:] - box[:,:,:2]) / input_size + box[:,:,:2]
 
 def train(opt):
+    # Make a directory to save weights
+    Path(increment_path(Path(runs_dir) / opt.name, exist_ok=opt.exist_ok))(parents=True, exist_ok=True)
+
     with open(opt.config) as f:
         cfg = yaml.load(f, Loader=yaml.SafeLoader)
 
@@ -97,8 +118,8 @@ def train(opt):
         print(log)
         logging.info(log)
 
-        saveNamePrefix = f"{check_dir}/epoch#{epoch}_lr_{cfg['lr']:.5f}_wetD_{cfg['decay']:.5f}_stepSize_{opt.step_size}_gamma_{opt.gamma}"
-        torch.save(net.state_dict(), saveNamePrefix + ".pth")
+        saveNamePrefix = f"{runs_dir}/epoch#{epoch}_lr_{cfg['lr']:.5f}_wetD_{cfg['decay']:.5f}_stepSize_{opt.step_size}_gamma_{opt.gamma}"
+        torch.save(net.state_dict(), saveNamePrefix + ".pt")
 
 def test():
     pass
@@ -111,11 +132,10 @@ if __name__ == "__main__":
     parser.add_argument('--gamma', type=float, default=0.1, help="gamma of schedular")
     parser.add_argument('--weights', type=str, help='model.pt path(s)')
     parser.add_argument('--config', type=str, default='src/cfg.yaml', help="path to configuration")
-    parser.add_argument('--name', type=str, help="name of experiment")
+    parser.add_argument('--name', type=str, default='exp', help="name of experiment")
     opt = parser.parse_args()
 
     print(opt)
-    #check_requirements(exclude=('pycocotools', 'thop'))
 
     if opt.weights:
         test(opt)

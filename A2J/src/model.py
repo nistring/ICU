@@ -152,9 +152,6 @@ class ResNetBackBone(nn.Module):
         self.model = resnet.resnet34(pretrained=True)
 
     def forward(self, x):
-        # n, h, w = x.size()  # x: [B, 1, H ,W]
-        # x = x.unsqueeze(1)  # depth
-        # x = x.expand(n, 3, h, w)
         x = torch.stack((x,x,x), dim=1)
         x = self.model.conv1(x)
         x = self.model.bn1(x)
